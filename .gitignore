@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual envs
+.venv/
+venv/
+ENV/
+
+# Tests/cache
+.pytest_cache/
+
+# IDE/editor
+.idea/
+.vscode/
+
+# Project cache
+trading_agent/cache/
