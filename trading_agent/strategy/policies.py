@@ -45,7 +45,8 @@ class MLBasedPolicy(BasePolicy):
         if x_row.isna().any():
             return 0.5, 0.5
 
-        p_up = predict_direction_proba(self.model, x_row)
+        x_row_df = x_row.to_frame().T
+        p_up = predict_direction_proba(self.model, x_row_df)
         threshold = self.ml_config.threshold
         if p_up > threshold:
             w_t, w_s = 0.8, 0.2

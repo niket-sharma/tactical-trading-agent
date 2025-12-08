@@ -28,7 +28,7 @@ class MLConfig:
     train_end_date: str
     val_start_date: str
     val_end_date: str
-    model_type: str = "logistic_regression"
+    model_type: str = "logistic_regression"  # options: logistic_regression, random_forest, xgboost
     threshold: float = 0.55
 
 

@@ -30,6 +30,22 @@ def train_ml_model(
         model = RandomForestClassifier(
             n_estimators=200, max_depth=None, min_samples_leaf=2, n_jobs=-1
         )
+    elif model_type == "xgboost":
+        try:
+            import xgboost as xgb
+        except ImportError as exc:  # pragma: no cover - optional dependency
+            raise RuntimeError("xgboost is not installed. pip install xgboost to use this model.") from exc
+        model = xgb.XGBClassifier(
+            n_estimators=200,
+            max_depth=3,
+            learning_rate=0.05,
+            subsample=0.8,
+            colsample_bytree=0.8,
+            objective="binary:logistic",
+            eval_metric="logloss",
+            random_state=42,
+            n_jobs=4,
+        )
     else:  # pragma: no cover - unexpected model
         raise ValueError(f"Unsupported model_type: {model_type}")
 
@@ -65,6 +81,7 @@ def evaluate_model(model, X_val: pd.DataFrame, y_val: pd.Series) -> Tuple[float,
 
 def predict_direction_proba(model, x_row: pd.Series) -> float:
     """Return probability that QQQ goes up next day."""
-    arr = np.asarray(x_row).reshape(1, -1)
-    proba = model.predict_proba(arr)[0, 1]
+    if isinstance(x_row, pd.Series):
+        x_row = x_row.to_frame().T
+    proba = model.predict_proba(x_row)[0, 1]
     return float(proba)

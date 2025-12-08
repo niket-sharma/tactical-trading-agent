@@ -15,6 +15,7 @@ def backtest_strategy(
     policy: BasePolicy,
     initial_long_QQQ: float = 10000.0,
     initial_lev_capital: float = 10000.0,
+    transaction_cost_bps: float = 0.0,
 ) -> pd.DataFrame:
     """Simulate daily rebalancing between TQQQ and SQQQ."""
     dates = feature_df.index
@@ -55,11 +56,17 @@ def backtest_strategy(
         target_t_val = lev_capital * w_t
         target_s_val = lev_capital * w_s
 
+        # Transaction costs applied to traded value (both legs)
+        traded_val = abs(target_t_val) + abs(target_s_val)
+        cost = traded_val * (transaction_cost_bps / 10000.0)
+
         tqqq_shares = target_t_val / price_t[("TQQQ", "Close")]
         sqqq_shares = target_s_val / price_t[("SQQQ", "Close")]
 
         lev_capital_start = lev_capital
-        lev_capital = tqqq_shares * price_next[("TQQQ", "Close")] + sqqq_shares * price_next[("SQQQ", "Close")]
+        lev_capital = (
+            tqqq_shares * price_next[("TQQQ", "Close")] + sqqq_shares * price_next[("SQQQ", "Close")] - cost
+        )
         lev_return = lev_capital / lev_capital_start - 1 if lev_capital_start else 0.0
 
         qqq_value = qqq_shares * price_next[("QQQ", "Close")]
@@ -78,6 +85,8 @@ def backtest_strategy(
                 "total_value": total_value,
                 "weight_T": w_t,
                 "weight_S": w_s,
+                "weight_tqqq": w_t,
+                "weight_sqqq": w_s,
                 "lev_return": lev_return,
                 "total_return": total_return,
                 "TQQQ_buyhold_value": tqqq_only_value,

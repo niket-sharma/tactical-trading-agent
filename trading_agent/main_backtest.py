@@ -37,7 +37,16 @@ def load_prices(start_date: str, end_date: Optional[str]) -> pd.DataFrame:
     return cached
 
 
-def build_policy(mode: str, features: pd.DataFrame, prices: pd.DataFrame):
+def build_policy(
+    mode: str,
+    features: pd.DataFrame,
+    prices: pd.DataFrame,
+    model_type: str = "logistic_regression",
+    train_start: str = "2014-01-01",
+    train_end: str = "2020-12-31",
+    val_start: str = "2021-01-01",
+    val_end: str = "2022-12-31",
+):
     strategy_config = StrategyConfig(mode=mode)
     rule_policy = RuleBasedPolicy(strategy_config)
 
@@ -45,11 +54,11 @@ def build_policy(mode: str, features: pd.DataFrame, prices: pd.DataFrame):
         return rule_policy, None
 
     ml_config = MLConfig(
-        train_start_date="2014-01-01",
-        train_end_date="2020-12-31",
-        val_start_date="2021-01-01",
-        val_end_date="2022-12-31",
-        model_type="logistic_regression",
+        train_start_date=train_start,
+        train_end_date=train_end,
+        val_start_date=val_start,
+        val_end_date=val_end,
+        model_type=model_type,
         threshold=0.55,
     )
     X, y, dates = build_ml_dataset(features, prices)
@@ -69,15 +78,44 @@ def build_policy(mode: str, features: pd.DataFrame, prices: pd.DataFrame):
     return hybrid_policy, ml_config
 
 
-def run_backtest(mode: str, start_date: str, end_date: Optional[str]):
+def run_backtest(
+    mode: str,
+    start_date: str,
+    end_date: Optional[str],
+    model_type: str = "logistic_regression",
+    train_start: str = "2014-01-01",
+    train_end: str = "2020-12-31",
+    val_start: str = "2021-01-01",
+    val_end: str = "2022-12-31",
+    exclude_train_from_eval: bool = False,
+    transaction_cost_bps: float = 0.0,
+):
     prices = load_prices(start_date, end_date)
     features = compute_indicators(prices)
 
-    policy, ml_config = build_policy(mode, features, prices)
-    results = backtest_strategy(prices, features, policy)
+    policy, ml_config = build_policy(
+        mode,
+        features,
+        prices,
+        model_type=model_type,
+        train_start=train_start,
+        train_end=train_end,
+        val_start=val_start,
+        val_end=val_end,
+    )
+    results = backtest_strategy(
+        prices,
+        features,
+        policy,
+        transaction_cost_bps=transaction_cost_bps,
+    )
     if results.empty:
         print("No results - not enough data.")
         return
+
+    if exclude_train_from_eval and mode in {MODE_ML, MODE_HYBRID} and ml_config:
+        eval_start = pd.to_datetime(ml_config.val_start_date)
+        results = results.loc[results.index >= eval_start]
 
     cagr = compute_cagr(results["total_value"])
     sharpe = compute_sharpe(results["total_return"])
@@ -90,18 +128,72 @@ def run_backtest(mode: str, start_date: str, end_date: Optional[str]):
     print(f"Max drawdown: {max_dd:.2%}")
     print(f"Daily volatility: {vol:.2%}")
 
+    return results
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Backtest QQQ/TQQQ/SQQQ strategies.")
     parser.add_argument("--mode", choices=[MODE_RULE, MODE_ML, MODE_HYBRID], default=MODE_RULE)
     parser.add_argument("--start-date", default=DEFAULT_START_DATE)
     parser.add_argument("--end-date", default=DEFAULT_END_DATE)
+    parser.add_argument(
+        "--model-type",
+        choices=["logistic_regression", "random_forest", "xgboost"],
+        default="logistic_regression",
+        help="ML model type for ml/hybrid modes.",
+    )
+    parser.add_argument("--train-start", default="2014-01-01", help="ML train start date (YYYY-MM-DD)")
+    parser.add_argument("--train-end", default="2020-12-31", help="ML train end date (YYYY-MM-DD)")
+    parser.add_argument("--val-start", default="2021-01-01", help="ML validation start date (YYYY-MM-DD)")
+    parser.add_argument("--val-end", default="2022-12-31", help="ML validation end date (YYYY-MM-DD)")
+    parser.add_argument(
+        "--exclude-train-from-eval",
+        action="store_true",
+        help="If set, evaluation metrics are computed only after validation start.",
+    )
+    parser.add_argument(
+        "--transaction-cost-bps",
+        type=float,
+        default=0.0,
+        help="Per-trade transaction cost in basis points applied to traded value.",
+    )
+    parser.add_argument(
+        "--save-signals",
+        type=str,
+        default=None,
+        help="Optional path to save daily signals (allocations) as CSV.",
+    )
     return parser.parse_args()
 
 
 def main():
     args = parse_args()
-    run_backtest(args.mode, args.start_date, args.end_date)
+    results = run_backtest(
+        args.mode,
+        args.start_date,
+        args.end_date,
+        model_type=args.model_type,
+        train_start=args.train_start,
+        train_end=args.train_end,
+        val_start=args.val_start,
+        val_end=args.val_end,
+        exclude_train_from_eval=args.exclude_train_from_eval,
+        transaction_cost_bps=args.transaction_cost_bps,
+    )
+    if args.save_signals and results is not None and not results.empty:
+        cols = [
+            "weight_tqqq",
+            "weight_sqqq",
+            "total_value",
+            "total_return",
+            "lev_capital",
+            "QQQ_buyhold_value",
+            "TQQQ_buyhold_value",
+            "SQQQ_buyhold_value",
+        ]
+        export_df = results[[c for c in cols if c in results.columns]].copy()
+        export_df.to_csv(args.save_signals, index=True, date_format="%Y-%m-%d")
+        print(f"Saved daily signals to {args.save_signals}")
 
 
 if __name__ == "__main__":
