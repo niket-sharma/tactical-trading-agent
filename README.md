@@ -34,6 +34,14 @@ python -m trading_agent.main_backtest --mode rule --save-signals signals.csv
 python -m trading_agent.main_backtest --mode rule --start-date 2014-01-01 --end-date 2024-12-31
 ```
 
+### Discrete Trade System (New)
+Rule-only, discrete trades in TQQQ/SQQQ using a QQQ trend + pullback filter and explicit stops/targets.
+```bash
+python -m trading_agent.main_trade_system --start-date 2014-01-01 --end-date 2024-12-31 \
+  --initial-equity 10000 --typical-position-frac 0.15 --max-position-frac 0.25
+```
+Outputs metrics (CAGR/Sharpe/MaxDD/Vol) and a quick trade summary.
+
 ## Python API
 ```python
 from trading_agent.api import backtest, get_signals
