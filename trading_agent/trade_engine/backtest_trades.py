@@ -151,3 +151,8 @@ def run_trade_backtest(price_df: pd.DataFrame, config: Optional[TradeSystemConfi
 
     equity_df = pd.DataFrame.from_records(records).set_index("date")
     return equity_df, trades
+
+
+def backtest_trade_system(price_df: pd.DataFrame, config: Optional[TradeSystemConfig] = None):
+    """Alias for run_trade_backtest to keep public API ergonomic."""
+    return run_trade_backtest(price_df, config)

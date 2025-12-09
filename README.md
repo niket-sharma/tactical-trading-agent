@@ -42,6 +42,14 @@ python -m trading_agent.main_trade_system --start-date 2014-01-01 --end-date 202
 ```
 Outputs metrics (CAGR/Sharpe/MaxDD/Vol) and a quick trade summary.
 
+### Trade System Research Lab (Parameter Sweeps)
+Run sweeps over RSI thresholds, pullback windows, stops, and position sizing. Results saved to CSV for analysis.
+```bash
+python -m trading_agent.main_trade_experiments --start-date 2014-01-01 --end-date 2024-12-31 \
+  --output trade_experiments.csv --max-runs 100   # omit --max-runs to run full grid
+```
+Adjust the default grid in `trading_agent/trade_engine/experiments.py` if you want a different search space.
+
 ## Python API
 ```python
 from trading_agent.api import backtest, get_signals

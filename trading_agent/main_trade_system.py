@@ -23,6 +23,16 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _parse_date_arg(label: Optional[str]) -> Optional[str]:
+    """Convert CLI date arg to ISO string or None, raising on invalid input."""
+    if label in (None, "", "None"):
+        return None
+    try:
+        return pd.to_datetime(label).date().isoformat()
+    except Exception as exc:  # noqa: BLE001 - provide user-friendly message
+        raise SystemExit(f"Invalid date '{label}': {exc}") from exc
+
+
 def run(start_date: str, end_date: Optional[str], cfg: TradeSystemConfig):
     prices = load_prices(start_date, end_date)
     equity_df, trades = run_trade_backtest(prices, cfg)
@@ -53,12 +63,14 @@ def run(start_date: str, end_date: Optional[str], cfg: TradeSystemConfig):
 
 def main():
     args = parse_args()
+    start_date = _parse_date_arg(args.start_date)
+    end_date = _parse_date_arg(args.end_date)
     cfg = TradeSystemConfig(
         initial_equity=args.initial_equity,
         max_position_fraction=args.max_position_frac,
         typical_position_fraction=args.typical_position_frac,
     )
-    run(args.start_date, args.end_date, cfg)
+    run(start_date, end_date, cfg)
 
 
 if __name__ == "__main__":
