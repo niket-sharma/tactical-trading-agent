@@ -31,5 +31,8 @@ def compute_indicators(price_df: pd.DataFrame) -> pd.DataFrame:
     features["QQQ_vol_20"] = features["QQQ_ret"].rolling(window=20, min_periods=20).std()
 
     features["QQQ_mom_10"] = qqq_close / qqq_close.shift(10) - 1
+    # Slope of the 50-day SMA over the last 10 days (trend quality proxy)
+    if "QQQ_SMA_50" in features:
+        features["QQQ_SMA_50_slope_10"] = features["QQQ_SMA_50"] - features["QQQ_SMA_50"].shift(10)
 
     return features

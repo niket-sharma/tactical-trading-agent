@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from itertools import product
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
 import pandas as pd
 
@@ -27,7 +27,28 @@ def _default_param_grid() -> Dict[str, List[Any]]:
         "stop_loss_pct": [0.08, 0.10],
         "take_profit_max_pct": [0.12, 0.15],
         "trailing_stop_pct": [0.05, 0.07],
+        "max_position_fraction": [0.20, 0.25],
         "typical_position_fraction": [0.10, 0.15],
+    }
+
+
+def _compute_metrics(equity_df: pd.DataFrame, trades: List[Any]) -> Dict[str, Any]:
+    """Compute summary metrics for a single backtest run."""
+    daily_return = equity_df["total_equity"].pct_change().fillna(0.0)
+    cagr = compute_cagr(equity_df["total_equity"])
+    sharpe = compute_sharpe(daily_return)
+    max_dd = compute_max_drawdown(equity_df["total_equity"])
+    vol = compute_daily_volatility(daily_return)
+
+    return {
+        "cagr": cagr,
+        "sharpe": sharpe,
+        "max_dd": max_dd,
+        "daily_vol": vol,
+        "trades": len(trades),
+        "final_equity": equity_df["total_equity"].iloc[-1],
+        "start": equity_df.index.min().date().isoformat(),
+        "end": equity_df.index.max().date().isoformat(),
     }
 
 
@@ -67,32 +88,20 @@ def run_param_sweep(
             rows.append({**params, "run": idx, "error": "empty_equity"})
             continue
 
-        daily_return = equity_df["total_equity"].pct_change().fillna(0.0)
-        cagr = compute_cagr(equity_df["total_equity"])
-        sharpe = compute_sharpe(daily_return)
-        max_dd = compute_max_drawdown(equity_df["total_equity"])
-        vol = compute_daily_volatility(daily_return)
-
-        rows.append(
-            {
-                "run": idx,
-                **params,
-                "cagr": cagr,
-                "sharpe": sharpe,
-                "max_dd": max_dd,
-                "daily_vol": vol,
-                "trades": len(trades),
-                "final_equity": equity_df["total_equity"].iloc[-1],
-                "start": equity_df.index.min().date().isoformat(),
-                "end": equity_df.index.max().date().isoformat(),
-            }
-        )
+        metrics = _compute_metrics(equity_df, trades)
+        rows.append({"run": idx, **params, **metrics, "error": ""})
 
     result_df = pd.DataFrame(rows)
-    metric_cols = ["cagr", "sharpe", "max_dd", "daily_vol", "trades", "final_equity"]
     if not result_df.empty:
         sort_cols = [c for c in ["cagr", "sharpe", "max_dd", "daily_vol"] if c in result_df.columns]
         asc = [False, False, True, True][: len(sort_cols)]
         if sort_cols:
             result_df.sort_values(by=sort_cols, ascending=asc, inplace=True)
+
+        # Reorder columns for easier CSV analysis
+        ordered_params = [col for col in keys if col in result_df.columns]
+        metric_cols = ["cagr", "sharpe", "max_dd", "daily_vol", "trades", "final_equity"]
+        bookkeeping = ["run", "start", "end", "error"]
+        col_order = ["run"] + ordered_params + metric_cols + [c for c in bookkeeping if c in result_df.columns and c != "run"]
+        result_df = result_df[[col for col in col_order if col in result_df.columns]]
     return result_df

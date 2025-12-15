@@ -13,8 +13,8 @@ Research-grade backtester and signal generator for allocating between TQQQ (3x l
 
 ## Setup
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+python -m venv venv
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
@@ -43,12 +43,19 @@ python -m trading_agent.main_trade_system --start-date 2014-01-01 --end-date 202
 Outputs metrics (CAGR/Sharpe/MaxDD/Vol) and a quick trade summary.
 
 ### Trade System Research Lab (Parameter Sweeps)
-Run sweeps over RSI thresholds, pullback windows, stops, and position sizing. Results saved to CSV for analysis.
+Run sweeps over RSI thresholds, pullback windows, stops, and position sizing (typical + max fractions). Each run logs CAGR, Sharpe, Max DD, daily vol, trade count, and final equity to CSV for quick analysis.
 ```bash
 python -m trading_agent.main_trade_experiments --start-date 2014-01-01 --end-date 2024-12-31 \
   --output trade_experiments.csv --max-runs 100   # omit --max-runs to run full grid
 ```
 Adjust the default grid in `trading_agent/trade_engine/experiments.py` if you want a different search space.
+
+### Next-Day Plan (Explanation Layer)
+Print a plain-English plan for the most recent date: macro regime, swing signal, target allocations (QQQ/TQQQ/SQQQ/CASH), and suggested changes vs. prior day.
+```bash
+python -m trading_agent.main_next_day_plan --start-date 2014-01-01 --end-date 2024-12-31
+```
+Research output only; not financial advice.
 
 ## Python API
 ```python
